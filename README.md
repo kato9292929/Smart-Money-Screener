@@ -127,12 +127,22 @@ vercel env add PAYMENT_RECIPIENT_ADDRESS
 
 ## x402scan への登録
 
-デプロイ後、以下のdiscoveryエンドポイントをx402scanに登録することで、対応クライアントから自動検出されます。
+x402scan の「Add your API」フォームには **実際のAPIエンドポイントURL** を入力してください。
+x402scanはそのURLに直接リクエストを送り、402レスポンスを確認します。
 
-| エンドポイント | 内容 |
-|----------------|------|
-| `/.well-known/x402.json` | 静的discoveryドキュメント |
-| `/api/x402` | 動的discoveryエンドポイント |
+```
+https://your-domain.vercel.app/api/screener/smart-money
+```
+
+> **注意**: `/.well-known/x402.json` のURLを入力しても「Expected 402 response」エラーになります。
+> Discovery documentはAIエージェントによる自動検出用であり、x402scan登録には使いません。
+
+### Discovery エンドポイント（AIエージェント向け）
+
+| URL | 内容 |
+|-----|------|
+| `/.well-known/x402.json` | `ListDiscoveryResourcesResponse` 形式のdiscoveryドキュメント（`/api/x402` へrewrite） |
+| `/api/x402` | 動的discovery（`PAYMENT_RECIPIENT_ADDRESS` をenv varから注入） |
 
 ## プロジェクト構成
 
