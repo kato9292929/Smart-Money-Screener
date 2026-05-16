@@ -1,0 +1,10 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "env": {
+    "NANSEN_API_KEY": "@nansen_api_key",
+    "PAYMENT_RECIPIENT_ADDRESS": "@payment_recipient_address"
+  }
+}
