@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Live dot pulse ──────────────────────────────────── */
+@keyframes liveDot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.15; }
+}
+.live-dot {
+  animation: liveDot 1.4s ease-in-out infinite;
+}
+
+/* ── Table row flash on data update ─────────────────── */
+@keyframes rowFlash {
+  0%   { background-color: rgba(0, 255, 135, 0.12); }
+  100% { background-color: transparent; }
+}
+.row-flash {
+  animation: rowFlash 0.65s ease-out forwards;
+}
+
+/* ── Score bar fill slide ────────────────────────────── */
+@keyframes barFill {
+  from { width: 0; }
+}
+.bar-fill {
+  animation: barFill 0.8s ease-out;
+}
+
+/* ── Stat counter fade-up ────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up {
+  animation: fadeUp 0.6s ease-out both;
+}
+
+/* ── Scrollbar styling ───────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0a0a0a; }
+::-webkit-scrollbar-thumb { background: #1f1f1f; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #333; }
