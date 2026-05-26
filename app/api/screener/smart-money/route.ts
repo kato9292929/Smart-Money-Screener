@@ -36,7 +36,7 @@ async function handler(req: NextRequest): Promise<NextResponse> {
   }
 }
 
-// x402 v2: $0.05 USDC on Base mainnet (eip155:8453)
+// x402 v2: $0.05 USDC – Base mainnet (eip155:8453) or Solana mainnet
 export const GET = withX402(
   handler,
   {
@@ -46,8 +46,17 @@ export const GET = withX402(
         price: "$0.05",
         network: "eip155:8453",
         payTo:
+          process.env.WALLET_ADDRESS_BASE ??
           process.env.WALLET_ADDRESS ??
           "0x0000000000000000000000000000000000000000",
+      },
+      {
+        scheme: "exact",
+        price: "$0.05",
+        network: "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+        payTo:
+          process.env.WALLET_ADDRESS_SOLANA ??
+          "4s8XQC2WzRfgH8Xiep7ybnCW11VKRCMwxQF6jknx3VPf",
       },
     ],
     description: "Smart Money Screener – 24h Solana & Base net-flow data",

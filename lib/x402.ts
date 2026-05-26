@@ -1,5 +1,6 @@
 import { HTTPFacilitatorClient, x402ResourceServer } from "@x402/core/server";
 import { registerExactEvmScheme } from "@x402/evm/exact/server";
+import { registerExactSvmScheme } from "@x402/svm/exact/server";
 import { createFacilitatorConfig } from "@coinbase/x402";
 
 /**
@@ -30,13 +31,16 @@ const facilitatorClient = buildFacilitatorClient();
 
 /**
  * Shared x402 resource server for this application.
- * Registers the EVM exact-payment scheme with eip155:* wildcard
- * (covers Base mainnet eip155:8453, Base Sepolia eip155:84532, etc.)
+ * Registers:
+ *   - EVM exact-payment scheme with eip155:* wildcard (Base mainnet, etc.)
+ *   - SVM exact-payment scheme for Solana mainnet
  *
  * NOTE: syncFacilitatorOnStart is intentionally left at its default (true).
  * Setting it to false causes the supported kinds to remain empty on Vercel
  * runtimes, which results in 500 errors instead of 402.
  */
-export const x402Server = registerExactEvmScheme(
-  new x402ResourceServer(facilitatorClient),
+export const x402Server = registerExactSvmScheme(
+  registerExactEvmScheme(
+    new x402ResourceServer(facilitatorClient),
+  ),
 );

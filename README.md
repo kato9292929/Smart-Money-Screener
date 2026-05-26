@@ -9,7 +9,7 @@
 | 対象チェーン | Solana・Base |
 | データソース | Nansen Smart Money Flows API |
 | 集計期間 | 直近24時間 |
-| 決済 | Base上のUSDC $0.05/クエリ（x402 **v2** · network: `eip155:8453`） |
+| 決済 | USDC $0.05/クエリ（x402 **v2** · Base `eip155:8453` または Solana mainnet） |
 | デプロイ先 | Vercel |
 | x402実装 | `@x402/next` + `@x402/evm` + Coinbase CDP facilitator |
 
@@ -78,12 +78,15 @@ cp .env.example .env.local
 | 変数名 | 必須 | 説明 |
 |--------|------|------|
 | `NANSEN_API_KEY` | ✅ | [Nansen](https://nansen.ai) で取得したAPIキー |
-| `WALLET_ADDRESS` | ✅ | 受取ウォレットのBaseアドレス（`0x...`） |
+| `WALLET_ADDRESS_BASE` | ✅ | 受取ウォレットのBaseアドレス（`0x...`） |
+| `WALLET_ADDRESS_SOLANA` | ✅ | 受取ウォレットのSolanaアドレス |
 | `CDP_API_KEY_ID` | 推奨 | Coinbase CDP APIキーID（UUID形式）[取得先](https://portal.cdp.coinbase.com/) |
 | `CDP_API_KEY_SECRET` | 推奨 | Coinbase CDP APIキーSecret（base64、末尾`==`） |
 | `FACILITATOR_URL` | — | facilitator URL（CDP keysがある場合は不要） |
 
 > **facilitator自動選択**: `CDP_API_KEY_ID` + `CDP_API_KEY_SECRET` が設定されていればCoinbase CDP facilitatorを使用。`FACILITATOR_URL`のみの場合はそのURLを使用。いずれもなければx402.orgのデフォルトfacilitatorを使用（開発用）。
+>
+> **後方互換**: `WALLET_ADDRESS`（旧環境変数）が設定されている場合、`WALLET_ADDRESS_BASE`の代替として使用されます。
 
 ### 3. 開発サーバーの起動
 
@@ -128,7 +131,8 @@ Vercelダッシュボードの **Settings > Environment Variables** から以下
 | 変数名 | 値 |
 |--------|-----|
 | `NANSEN_API_KEY` | Nansenで取得したAPIキー |
-| `WALLET_ADDRESS` | 受取BaseウォレットアドレスS |
+| `WALLET_ADDRESS_BASE` | 受取BaseウォレットアドレスS |
+| `WALLET_ADDRESS_SOLANA` | 受取Solanaウォレットアドレス |
 | `CDP_API_KEY_ID` | Coinbase CDP APIキーID |
 | `CDP_API_KEY_SECRET` | Coinbase CDP APIキーSecret |
 | `FACILITATOR_URL` | `https://api.cdp.coinbase.com/platform/v2/x402` |
