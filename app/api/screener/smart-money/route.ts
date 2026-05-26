@@ -1,24 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withX402 } from "x402-next";
-import type { Address } from "viem";
-import type { FacilitatorConfig } from "x402/types";
+import { withX402 } from "@x402/next";
+import { x402Server } from "@/lib/x402";
 import { fetchSmartMoneyFlows } from "@/lib/nansen";
 import { filterAndScore } from "@/lib/screener";
-
-const PAYMENT_RECIPIENT = (
-  process.env.PAYMENT_RECIPIENT_ADDRESS ?? "0x0000000000000000000000000000000000000000"
-) as Address;
-
-// Coinbase CDP facilitator – url must be a fully-qualified URL string
-function buildFacilitatorConfig(): FacilitatorConfig | undefined {
-  const raw = process.env.X402_FACILITATOR_URL;
-  if (!raw) return undefined;
-  // Resource requires a `${string}://${string}` template literal type
-  const url = raw as `${string}://${string}`;
-  return { url };
-}
-
-const FACILITATOR_CONFIG = buildFacilitatorConfig();
 
 async function handler(req: NextRequest): Promise<NextResponse> {
   const apiKey = process.env.NANSEN_API_KEY;
@@ -52,16 +36,22 @@ async function handler(req: NextRequest): Promise<NextResponse> {
   }
 }
 
-// Wrap with x402 payment gate: $0.05 USDC on Base per query
+// x402 v2: $0.05 USDC on Base mainnet (eip155:8453)
 export const GET = withX402(
   handler,
-  PAYMENT_RECIPIENT,
   {
-    price: "$0.05",
-    network: "base",
-    config: {
-      description: "Smart Money Screener – 24h Solana & Base net-flow data",
-    },
+    accepts: [
+      {
+        scheme: "exact",
+        price: "$0.05",
+        network: "eip155:8453",
+        payTo:
+          process.env.WALLET_ADDRESS ??
+          "0x0000000000000000000000000000000000000000",
+      },
+    ],
+    description: "Smart Money Screener – 24h Solana & Base net-flow data",
+    mimeType: "application/json",
   },
-  FACILITATOR_CONFIG
+  x402Server,
 );

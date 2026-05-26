@@ -16,11 +16,17 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "overrides": {
+    "viem": "2.49.0"
+  },
   "dependencies": {
+    "@coinbase/x402": "^2.1.0",
+    "@x402/core": "^2.13.0",
+    "@x402/evm": "^2.13.0",
+    "@x402/next": "^2.13.0",
     "next": "^16.2.6",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "x402-next": "^1.2.0"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/node": "^25.8.0",

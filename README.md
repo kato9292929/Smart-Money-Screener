@@ -1,6 +1,6 @@
 # Smart Money Screener
 
-スマートマネーのネットフローをリアルタイムでスクリーニングするAPIです。[Nansen](https://nansen.ai) のスマートマネーデータを取得し、[x402プロトコル](https://x402.org) によるBase USDC決済ゲートを通じて提供します。
+スマートマネーのネットフローをリアルタイムでスクリーニングするAPIです。[Nansen](https://nansen.ai) のスマートマネーデータを取得し、[x402プロトコル v2](https://x402.org) によるBase USDC決済ゲートを通じて提供します。
 
 ## 概要
 
@@ -9,8 +9,9 @@
 | 対象チェーン | Solana・Base |
 | データソース | Nansen Smart Money Flows API |
 | 集計期間 | 直近24時間 |
-| 決済 | Base上のUSDC $0.05/クエリ（x402プロトコル） |
+| 決済 | Base上のUSDC $0.05/クエリ（x402 **v2** · network: `eip155:8453`） |
 | デプロイ先 | Vercel |
+| x402実装 | `@x402/next` + `@x402/evm` + Coinbase CDP facilitator |
 
 ## エンドポイント
 
@@ -77,8 +78,12 @@ cp .env.example .env.local
 | 変数名 | 必須 | 説明 |
 |--------|------|------|
 | `NANSEN_API_KEY` | ✅ | [Nansen](https://nansen.ai) で取得したAPIキー |
-| `PAYMENT_RECIPIENT_ADDRESS` | ✅ | 受取ウォレットのBaseアドレス（`0x...`） |
-| `X402_FACILITATOR_URL` | — | カスタムfacilitator URL（未設定時はx402デフォルト） |
+| `WALLET_ADDRESS` | ✅ | 受取ウォレットのBaseアドレス（`0x...`） |
+| `CDP_API_KEY_ID` | 推奨 | Coinbase CDP APIキーID（UUID形式）[取得先](https://portal.cdp.coinbase.com/) |
+| `CDP_API_KEY_SECRET` | 推奨 | Coinbase CDP APIキーSecret（base64、末尾`==`） |
+| `FACILITATOR_URL` | — | facilitator URL（CDP keysがある場合は不要） |
+
+> **facilitator自動選択**: `CDP_API_KEY_ID` + `CDP_API_KEY_SECRET` が設定されていればCoinbase CDP facilitatorを使用。`FACILITATOR_URL`のみの場合はそのURLを使用。いずれもなければx402.orgのデフォルトfacilitatorを使用（開発用）。
 
 ### 3. 開発サーバーの起動
 
@@ -118,12 +123,28 @@ vercel --prod
 
 ### 2. 環境変数をVercelに設定
 
-```bash
-vercel env add NANSEN_API_KEY
-vercel env add PAYMENT_RECIPIENT_ADDRESS
-```
+Vercelダッシュボードの **Settings > Environment Variables** から以下を設定します。
 
-またはVercelダッシュボードの **Settings > Environment Variables** から設定します。
+| 変数名 | 値 |
+|--------|-----|
+| `NANSEN_API_KEY` | Nansenで取得したAPIキー |
+| `WALLET_ADDRESS` | 受取BaseウォレットアドレスS |
+| `CDP_API_KEY_ID` | Coinbase CDP APIキーID |
+| `CDP_API_KEY_SECRET` | Coinbase CDP APIキーSecret |
+| `FACILITATOR_URL` | `https://api.cdp.coinbase.com/platform/v2/x402` |
+
+### 3. 動作確認（x402 v2）
+
+```bash
+# 402レスポンスを確認（x402Version: 2, network: "eip155:8453" であることを検証）
+curl -i https://your-domain.vercel.app/api/screener/smart-money
+
+# payment-required ヘッダをデコード
+curl -si https://your-domain.vercel.app/api/screener/smart-money \
+  | grep payment-required \
+  | awk '{print $2}' \
+  | base64 -d | jq .
+```
 
 ## x402scan への登録
 
@@ -172,7 +193,9 @@ https://your-domain.vercel.app/api/screener/smart-money
 ## 技術スタック
 
 - [Next.js](https://nextjs.org/) 16 (App Router)
-- [x402-next](https://www.npmjs.com/package/x402-next) 1.2.0
+- [@x402/next](https://www.npmjs.com/package/@x402/next) – x402 v2
+- [@x402/evm](https://www.npmjs.com/package/@x402/evm) – EVM exact scheme
+- [@coinbase/x402](https://www.npmjs.com/package/@coinbase/x402) – CDP facilitator統合
 - [Nansen API](https://nansen.ai/api) – Smart Money Flows
 - TypeScript 5
 - Vercel
