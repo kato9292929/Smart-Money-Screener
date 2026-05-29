@@ -14,13 +14,14 @@ async function handler(req: NextRequest): Promise<NextResponse> {
   }
 
   try {
-    const { tokens: raw, total_scanned } = await fetchSmartMoneyFlows(apiKey);
+    const { tokens: raw, total_scanned, warnings } = await fetchSmartMoneyFlows(apiKey);
     const tokens = filterAndScore(raw);
 
     return NextResponse.json({
       timestamp: new Date().toISOString(),
       tokens,
       total_scanned,
+      ...(warnings.length > 0 && { warnings }),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

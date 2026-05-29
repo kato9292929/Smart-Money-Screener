@@ -106,22 +106,46 @@ async function fetchWithRetry(
   throw lastError ?? new Error("Nansen API request failed after retries");
 }
 
-// Candidate endpoint configurations to try in order.
-// The first one that returns non-404 is used.
-const ENDPOINT_CANDIDATES = [
-  // Most likely current endpoint
-  (chain: string) =>
+// Shared candidates tried for every chain (first non-404 wins).
+const SHARED_CANDIDATES: ((chain: string) => string)[] = [
+  (chain) =>
     `${NANSEN_BASE_URL}/v2/smart-money/flows?chain=${chain}&period=24h&limit=100`,
-  // Alternative parameter names
-  (chain: string) =>
+  (chain) =>
     `${NANSEN_BASE_URL}/v2/smart-money/flows?chain=${chain}&timeframe=24h&limit=100`,
-  // v1 fallback
-  (chain: string) =>
+  (chain) =>
     `${NANSEN_BASE_URL}/v1/smart-money/flows?chain=${chain}&period=24h&limit=100`,
-  // Original path that was producing 404 – kept last as last resort
-  (chain: string) =>
+  (chain) =>
     `${NANSEN_BASE_URL}/v2/smart-money/token-flows?chain=${chain}&timeframe=24h&limit=100`,
-] as const;
+];
+
+// Extra candidates tried only for Solana, covering known naming variants and
+// Solana-prefixed path patterns that some Nansen API versions use.
+const SOLANA_EXTRA_CANDIDATES: (() => string)[] = [
+  // Different chain parameter values
+  () =>
+    `${NANSEN_BASE_URL}/v2/smart-money/flows?chain=sol&period=24h&limit=100`,
+  () =>
+    `${NANSEN_BASE_URL}/v2/smart-money/flows?chain=sol&timeframe=24h&limit=100`,
+  () =>
+    `${NANSEN_BASE_URL}/v2/smart-money/flows?chain=solana-mainnet&period=24h&limit=100`,
+  () =>
+    `${NANSEN_BASE_URL}/v2/smart-money/flows?chain=solana-mainnet&timeframe=24h&limit=100`,
+  // Solana-prefix path patterns
+  () =>
+    `${NANSEN_BASE_URL}/v2/solana/smart-money/flows?period=24h&limit=100`,
+  () =>
+    `${NANSEN_BASE_URL}/v2/solana/smart-money/flows?timeframe=24h&limit=100`,
+  () =>
+    `${NANSEN_BASE_URL}/v1/solana/smart-money/flows?period=24h&limit=100`,
+  () =>
+    `${NANSEN_BASE_URL}/v2/chains/solana/smart-money/flows?period=24h&limit=100`,
+];
+
+function buildCandidates(chain: Chain): (() => string)[] {
+  const shared = SHARED_CANDIDATES.map((fn) => () => fn(chain));
+  if (chain === "solana") return [...shared, ...SOLANA_EXTRA_CANDIDATES];
+  return shared;
+}
 
 async function fetchSmartMoneyFlowsForChain(
   apiKey: string,
@@ -132,25 +156,21 @@ async function fetchSmartMoneyFlowsForChain(
     Accept: "application/json",
   };
 
-  let lastBody = "";
-  let lastStatus = 0;
+  const attempted: string[] = [];
 
-  for (const buildUrl of ENDPOINT_CANDIDATES) {
-    const url = buildUrl(chain);
+  for (const buildUrl of buildCandidates(chain)) {
+    const url = buildUrl();
+    attempted.push(url);
     const res = await fetchWithRetry(url, { method: "GET", headers });
 
     if (res.status === 404) {
-      lastBody = await res.text().catch(() => "");
-      lastStatus = 404;
-      // Try next candidate
+      await res.text().catch(() => "");
       continue;
     }
 
     if (!res.ok) {
       const body = await res.text().catch(() => "");
-      throw new Error(
-        `Nansen API error ${res.status} at ${url}: ${body}`,
-      );
+      throw new Error(`Nansen API error ${res.status} at ${url}: ${body}`);
     }
 
     const data = await res.json();
@@ -197,17 +217,21 @@ async function fetchSmartMoneyFlowsForChain(
       .filter((t): t is SmartMoneyToken => t !== null);
   }
 
-  // All candidates returned 404
+  // All candidates returned 404 – surface the URLs we tried for diagnostics.
   throw new Error(
-    `Nansen API returned 404 on all known endpoint candidates for chain "${chain}". ` +
-      `Last response: ${lastStatus} ${lastBody}. ` +
-      `Please verify the correct endpoint in the Nansen API dashboard.`,
+    `Nansen API returned 404 for all ${attempted.length} known endpoint candidates ` +
+      `for chain "${chain}". ` +
+      `Attempted URLs: ${attempted.join(", ")}. ` +
+      `Nansen may not support this chain in the smart-money API; ` +
+      `verify the correct endpoint in the Nansen dashboard.`,
   );
 }
 
-export async function fetchSmartMoneyFlows(
-  apiKey: string,
-): Promise<{ tokens: SmartMoneyToken[]; total_scanned: number }> {
+export async function fetchSmartMoneyFlows(apiKey: string): Promise<{
+  tokens: SmartMoneyToken[];
+  total_scanned: number;
+  warnings: string[];
+}> {
   const chains: Chain[] = ["solana", "base"];
 
   const results = await Promise.allSettled(
@@ -217,22 +241,32 @@ export async function fetchSmartMoneyFlows(
   const tokens: SmartMoneyToken[] = [];
   let total_scanned = 0;
   const errors: string[] = [];
+  const warnings: string[] = [];
 
   for (let i = 0; i < results.length; i++) {
     const result = results[i];
+    const chain = chains[i];
     if (result.status === "fulfilled") {
       total_scanned += result.value.length;
       tokens.push(...result.value);
     } else {
-      errors.push(`${chains[i]}: ${(result.reason as Error).message}`);
+      const msg = (result.reason as Error).message;
+      if (msg.includes("404")) {
+        // Chain endpoint not found → degrade gracefully, warn caller
+        warnings.push(
+          `${chain}: Nansen does not appear to support smart-money flows for this chain at this time. ` +
+            `${chain} data is excluded from results.`,
+        );
+      } else {
+        errors.push(`${chain}: ${msg}`);
+      }
     }
   }
 
-  if (tokens.length === 0 && results.every((r) => r.status === "rejected")) {
-    throw new Error(
-      `All Nansen chain requests failed:\n${errors.join("\n")}`,
-    );
+  // Only fail hard when non-404 errors occurred and we got no data at all
+  if (tokens.length === 0 && errors.length > 0) {
+    throw new Error(`All Nansen chain requests failed:\n${errors.join("\n")}`);
   }
 
-  return { tokens, total_scanned };
+  return { tokens, total_scanned, warnings };
 }
